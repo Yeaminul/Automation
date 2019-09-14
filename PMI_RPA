@@ -1,0 +1,570 @@
+﻿import openpyxl
+import os
+import re
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+
+# Chrome driver
+options = webdriver.ChromeOptions()
+options.add_argument("--disable-infobars")
+options.add_argument("test-type")
+options.add_argument('--ignore-certificate-errors')
+options.add_argument("disable-extensions")
+options.add_argument("--start-maximized")
+options.add_argument("--enable-automation")
+
+
+# read and create data object
+book = openpyxl.load_workbook("pmi_data_LIVE.xlsx")
+sheet = book['Sheet1']
+start_list = []
+end_list = []
+
+
+# SERVICE DEFINITION
+browser = webdriver.Chrome("E:\chrome\chromedriver.exe", chrome_options=options)
+browser.maximize_window()
+browser.get("https://XXX.XX.XX.XX/")
+timeout = 10
+
+
+try:
+    element_present = EC.presence_of_element_located((By.ID, 'j_username'))
+    WebDriverWait(browser, timeout).until(element_present)
+
+
+    user = browser.find_element_by_id("j_username")
+    user.send_keys("XXXXXX")
+    password = browser.find_element_by_id("j_password")
+    password.clear()
+    password.send_keys("XXXXXX")
+    loginPMI = browser.find_element_by_name("login")
+    loginPMI.click()
+except TimeoutException:
+    print("ADCS is taking too much time to load !!!")
+
+
+try:
+    element_present = EC.presence_of_element_located((By.LINK_TEXT, 'Policy'))
+    WebDriverWait(browser, timeout).until(element_present)
+    browser.find_element_by_link_text("Policy").click()
+    time.sleep(1)
+except TimeoutException:
+    print("ADCS is taking too much time to load !!!")
+
+
+for i in range(4,5):
+    start = time.time()
+    start_list.append(start)
+    #Declaring pack variables
+    rule_name = sheet.cell(row=2, column=i).value
+    monitoring_key = sheet.cell(row=3, column=i).value
+    rule_priority = sheet.cell(row=5, column=i).value
+    plan_name = sheet.cell(row=6, column=i).value
+    selfcare = sheet.cell(row=9, column=i).value
+    charge = str(sheet.cell(row=10, column=i).value)
+    cost = sheet.cell(row=11, column=i).value
+    pack_volume = sheet.cell(row=15, column=i).value
+    volume = re.sub("[^0-9]", "", pack_volume)
+    pack_validity = sheet.cell(row=16, column=i).value
+    expiry_time = sheet.cell(row=17, column=i).value
+    accumulation_allowed = str(sheet.cell(row=18, column=i).value)
+    purchase_max_count = sheet.cell(row=20, column=i).value
+    Purcahse_max_period = sheet.cell(row=21, column=i).value
+    Purcahse_period_type = sheet.cell(row=22, column=i).value
+    recurring = str(sheet.cell(row=23, column=i).value)
+    max_number_occurrences = str(sheet.cell(row=24, column=i).value)
+    max_renewal_count = str(sheet.cell(row=25, column=i).value)
+    renewal_retry_delay = str(sheet.cell(row=26, column=i).value)
+    renewal_roll_over = str(sheet.cell(row=27, column=i).value)
+    ussd_indentifier = sheet.cell(row=28, column=i).value
+    usage_timeband = sheet.cell(row=29, column=i).value
+    network_type = sheet.cell(row=33, column=i).value
+    pack_type = sheet.cell(row=34, column=i).value
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.LINK_TEXT, 'PCRF'))
+        WebDriverWait(browser, timeout).until(element_present)
+
+
+        browser.find_element_by_link_text("PCRF").click()
+        time.sleep(1)
+        browser.find_element_by_link_text("Service Flows").click()
+        time.sleep(1)
+        browser.find_element_by_xpath('//*[@id="tabContainer_tablist_predefinedTab"]/span[1]').click()
+        browser.find_element_by_xpath('//*[@id="addServiceRule"]').click()
+
+
+        try:
+            element_present = EC.presence_of_element_located((By.ID, 'name'))
+            WebDriverWait(browser,timeout).until(element_present)
+
+
+            browser.switch_to.window(browser.current_window_handle)
+            ServiceName = browser.find_element_by_id("name")
+            ServiceName.send_keys(rule_name)
+            MK = browser.find_element_by_id("monitorKey")
+            MK.send_keys(monitoring_key)
+            RN = browser.find_element_by_id("ruleName")
+            RN.send_keys(rule_name)
+            RP = browser.find_element_by_id("rulePriority")
+            RP.send_keys(rule_priority)
+            browser.find_element_by_id("submitServiceRule").click()
+
+
+        except TimeoutException:
+            print('ADCS is taking too much time to load !!!')
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.ID, 'addServiceProfile_label'))
+        WebDriverWait(browser, timeout).until(element_present)
+        browser.switch_to.window(browser.current_window_handle)
+        browser.find_element_by_xpath('//div[@class="sidebar-toggler hidden-phone"]').click()
+        time.sleep(1)
+        browser.find_element_by_id("addServiceProfile_label").click()
+        browser.switch_to.window(browser.current_window_handle)
+
+
+        try:
+            element_present = EC.presence_of_element_located((By.ID, 'name'))
+            WebDriverWait(browser, timeout).until(element_present)
+
+
+            # Serive profile definition
+            SPNAME = "SP_{}".format(rule_name)
+            browser.find_element_by_id("name").send_keys(SPNAME)
+            SPTYPE = browser.find_element_by_id("serviceProfileType")
+            SPTYPE.clear()
+            SPTYPE.send_keys("PREDEFINED")
+            SerRestrict = browser.find_element_by_id("serviceRestriction")
+            SerRestrict.clear()
+            SerRestrict.send_keys("NONE")
+            SerRule = browser.find_element_by_id("serviceRule")
+            SerRule.send_keys(rule_name)
+            browser.find_element_by_id("saveServiceProfile_label").click()
+        except TimeoutException:
+            print("ADCS is taking too much time to load !!!")
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    # Plan definition
+    try:
+        element_present = EC.presence_of_element_located((By.LINK_TEXT,'SPCM'))
+        WebDriverWait(browser,timeout).until(element_present)
+        browser.find_element_by_link_text("SPCM").click()
+        time.sleep(1)
+        browser.find_element_by_link_text("Plan Definitions").click()
+        time.sleep(1)
+        browser.find_element_by_link_text("Subscriber Plans").click()
+        time.sleep(1)
+    except TimeoutException:
+        print('ADCS is taking too much time to load !!!')
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH,"//span[contains(text(), 'In Progress')]"))
+        WebDriverWait(browser,timeout).until(element_present)
+        browser.find_element_by_xpath("//span[contains(text(), 'In Progress')]").click()
+        time.sleep(1)
+        browser.find_element_by_id("add_label").click()
+    except TimeoutException:
+        print('ADCS is taking too much time to load !!!')
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH,'//div[@class="sidebar-toggler hidden-phone"]'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        browser.find_element_by_xpath('//div[@class="sidebar-toggler hidden-phone"]').click()
+        time.sleep(1)
+        browser.find_element_by_name("planDefinition.name").send_keys(plan_name)
+        browser.find_element_by_name("planDefinition.description").send_keys(plan_name)
+        browser.find_element_by_name("planDefinition.coreUpdate").click()
+        browser.find_element_by_id("planDefinitionClassification").clear()
+        browser.find_element_by_id("planDefinitionClassification").send_keys(pack_type)
+
+
+        if selfcare != "Yes":
+            browser.find_element_by_name("planDefinition.allowed").click()
+
+
+        if sheet.cell(row=23, column=i).value is not None:
+            #Renewal Count
+            if recurring.lower() not in ["na", "no", 'n']:
+                browser.find_element_by_name("planDefinition.recurring").click()
+                if (max_number_occurrences.lower() in ['max', 'maximum', 'm', 'highest']) or (sheet.cell(row=24, column=i).value is None):
+                    browser.find_element_by_id("maxOccurrenceCount").send_keys(1000)
+                    browser.find_element_by_id("maxParkingRetryCount").send_keys(5)
+                    browser.find_element_by_name("planDefinition.parkingRetryDelay").send_keys('6hours')
+                else:
+                    browser.find_element_by_id("maxOccurrenceCount").send_keys(max_number_occurrences)
+                    browser.find_element_by_id("maxParkingRetryCount").send_keys(5)
+                    browser.find_element_by_name("planDefinition.parkingRetryDelay").send_keys('6hours')
+
+
+        if charge.lower() == "yes":
+            browser.find_element_by_id("chargable").click()
+            cost = int(cost)
+            browser.find_element_by_id("cost").send_keys(cost)
+
+
+        #browser.find_element_by_id("maxDeactivationCount").send_keys(sheet.cell(row=12, column=i).value)
+        #browser.find_element_by_id("maxDeactivationPeriod").send_keys(sheet.cell(row=13, column=i).value)
+
+
+        browser.find_element_by_id("planPrecedence").clear()
+        browser.find_element_by_id("planPrecedence").send_keys("P_{}".format(rule_priority))
+
+
+        browser.find_element_by_id("displayUnitAmountVolume").send_keys(pack_volume)
+        browser.find_element_by_id("validityPeriodCheckbox").click()
+        browser.find_element_by_id("validityPeriod").send_keys(pack_validity)
+
+
+        try:
+            element_present = EC.presence_of_element_located((By.ID, 'absoluteExpiryTimeCheckbox'))
+            WebDriverWait(browser,timeout).until(element_present)
+
+
+            if expiry_time != "24hours":
+                time.sleep(2)
+                browser.find_element_by_id("absoluteExpiryTimeCheckbox").click()
+                time.sleep(1)
+                browser.find_element_by_id("absoluteExpiryTime").send_keys("00:01")
+        except TimeoutException:
+            print("Element Not Clickable")
+
+
+        if accumulation_allowed.lower() == "yes":
+            browser.find_element_by_id("accumulationPermittedCheckbox").click()
+            time.sleep(1)
+            browser.find_element_by_id("displayAccumulationRollOverLimitVolume").clear()
+            browser.find_element_by_id("displayAccumulationRollOverLimitVolume").send_keys("1000GBs")
+            browser.find_element_by_id("displayAccumulationRollOverLimitVolume").send_keys(Keys.TAB)
+            time.sleep(1)
+
+
+        # Plan purchase restriction
+        if purchase_max_count is not None:
+            if str(purchase_max_count).lower() not in ["na", "no", "n"]:
+                browser.find_element_by_id("maxCount").send_keys(purchase_max_count)
+                browser.find_element_by_name("purchaseRestriction.period").send_keys(Purcahse_max_period)
+                browser.find_element_by_id("periodType").clear()
+                browser.find_element_by_id("periodType").send_keys("PURCHASE_TIME")
+
+
+        # Renewal count/rollover
+        if sheet.cell(row=27, column=i).value is None:
+            if (recurring.lower() not in ["na", "no", "n"]) and (renewal_roll_over.lower() not in ["na", "no", "n"]):
+                # Renewal rollover
+                browser.find_element_by_id("recycleRollOverLimitCheckbox").click()
+                browser.find_element_by_id("displayRecycleRollOverLimitVolume").clear()
+                browser.find_element_by_id("displayRecycleRollOverLimitVolume").send_keys("1000GBs")
+                browser.find_element_by_id("displayRecycleRollOverLimitVolume").send_keys(Keys.TAB)
+                time.sleep(1)
+
+
+        # Identifier
+        if ussd_indentifier is not None:
+            if str(ussd_indentifier).lower() not in ['na','no','n']:
+                browser.find_element_by_id("identifier").send_keys(str(ussd_indentifier).strip())
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    # PCC PROFILE
+    browser.find_element_by_id("addPccProfileButton").click()
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.ID,'alias'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        PCC = rule_name + "_PCC"
+        browser.find_element_by_id("alias").send_keys(PCC)
+        browser.find_element_by_id("profile.serviceProfile").clear()
+        SPNAME = "SP_{}".format(rule_name)
+        browser.find_element_by_id("profile.serviceProfile").send_keys(SPNAME)
+        browser.find_element_by_id("profile.chargingProfile").clear()
+        browser.find_element_by_id("profile.chargingProfile").send_keys("Prepaid Postpaid Bundle")
+        browser.find_element_by_id("standardLocationProfiles").clear()
+        browser.find_element_by_id("standardLocationProfiles").send_keys("HOME-PLMNID")
+
+
+        if str(usage_timeband).lower() != "24hours":
+            browser.find_element_by_id("profile.timeProfile").clear()
+            browser.find_element_by_id("profile.timeProfile").send_keys(usage_timeband)
+        else:
+            browser.find_element_by_id("profile.timeProfile").clear()
+            browser.find_element_by_id("profile.timeProfile").send_keys("None")
+
+
+        browser.find_element_by_id("profile.timeProfile").send_keys(Keys.TAB)
+        #time.sleep(1)
+
+
+        if str(network_type).lower() in ("rat_4g", "4g"):
+            browser.find_element_by_id("profile.networkProfile").clear()
+            browser.find_element_by_id("profile.networkProfile").send_keys("RAT_4G")
+        else:
+            browser.find_element_by_id("profile.networkProfile").clear()
+            browser.find_element_by_id("profile.networkProfile").send_keys("None")
+
+
+        browser.find_element_by_id("profile.networkProfile").send_keys(Keys.TAB)
+        #time.sleep(1)
+        browser.find_element_by_id("profile.deviceProfile").send_keys(Keys.TAB)
+        #time.sleep(1)
+        browser.find_element_by_id("profile.stateProfile").send_keys(Keys.TAB)
+        #time.sleep(1)
+        browser.find_element_by_id("meteringPercentage").send_keys(Keys.TAB)
+        #time.sleep(1)
+        browser.find_element_by_id("savePccProfile_label").click()
+
+
+    except TimeoutException:
+        print("PCC Profile is taking too much time to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, '//div[@class="sidebar-toggler hidden-phone"]'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        browser.find_element_by_xpath('//div[@class="sidebar-toggler hidden-phone"]').click()
+        # USAGE REPORT
+        time.sleep(1)
+        browser.find_element_by_id("displayDefaultGrantedVolumeAmount").clear()
+
+
+        volume = int(volume)
+
+
+        if volume < 30:
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys('5MBs')
+            time.sleep(1)
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys(Keys.TAB)
+            time.sleep(1)
+        elif 30 <= volume < 100:
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys('10MBs')
+            time.sleep(1)
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys(Keys.TAB)
+            time.sleep(1)
+        elif 100 <= volume <= 5120:
+            vol = volume * 0.1
+            vol = int(vol)
+            pk_vol = str(vol) + 'MBs'
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys(pk_vol)
+            time.sleep(1)
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys(Keys.TAB)
+            time.sleep(1)
+        else:
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys('500MBs')
+            time.sleep(1)
+            browser.find_element_by_id("displayDefaultGrantedVolumeAmount").send_keys(Keys.TAB)
+            time.sleep(1)
+        browser.find_element_by_id("save_label").click()
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Versioning')]"))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        browser.find_element_by_xpath("//span[contains(text(), 'Versioning')]").click()
+        time.sleep(1)
+        browser.find_element_by_id("planDefinitionVersioningSearchCriteria.planDefinition").clear()
+        browser.find_element_by_id("planDefinitionVersioningSearchCriteria.planDefinition").send_keys(plan_name.rstrip())
+        #time.sleep(1)
+        browser.find_element_by_id("searchVersions_label").click()
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.ID,'planDefinitionVersioningSearchCriteria.recordsPerPage'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        N = 11
+        browser.find_element_by_id("planDefinitionVersioningSearchCriteria.recordsPerPage").send_keys(Keys.TAB)
+        actions = ActionChains(browser)
+        actions.send_keys(Keys.TAB * N)
+        actions.send_keys(Keys.ENTER)
+        actions.perform()
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Edit')]"))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        # Make it editable
+        browser.find_element_by_xpath("//span[contains(text(), 'Edit')]").click()
+
+
+    except TimeoutException:
+        print("ADCS is taking too much to load !!!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, "//a[contains(text(), '{0}')]".format(plan_name.rstrip())))
+        WebDriverWait(browser, timeout).until(element_present)
+
+
+        #Click the pack name
+        browser.find_element_by_xpath("//a[contains(text(), '{0}')]".format(plan_name)).click()
+        #browser.find_element_by_xpath("//a[contains(text(), '{0}')]".format(sheet.cell(row=6, column=i).value)).click()
+
+
+    except TimeoutException:
+        print("ADCS is taking too much to load !!!")
+
+
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, '//div[@class="sidebar-toggler hidden-phone"]'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        browser.find_element_by_xpath('//div[@class="sidebar-toggler hidden-phone"]').click()
+        time.sleep(1)
+
+
+        # USAGE RULE
+        browser.find_element_by_id("addUsageRuleButton_label").click()
+        #browser.switch_to.window(browser.current_window_handle)
+
+
+        try:
+            element_present = EC.presence_of_element_located((By.ID, "usageRuleDefinition.name"))
+            WebDriverWait(browser, timeout).until(element_present)
+
+
+            browser.switch_to.window(browser.current_window_handle)
+            browser.find_element_by_id("usageRuleDefinition.name").send_keys("50pct usage notification")
+            browser.find_element_by_id("displayThresholdVolume").clear()
+
+
+            vol_50pct = volume * 0.50
+            vol_50pct = int(vol_50pct)
+            pk_vol_50pct = str(vol_50pct) + 'MBs'
+
+
+            browser.find_element_by_id("displayThresholdVolume").send_keys(pk_vol_50pct)
+            browser.find_element_by_id("usageRuleDefinition.action").clear()
+            #browser.find_element_by_id("usageRuleDefinition.action").send_keys("AT_MSG_Plan_50_Consumed")
+            browser.find_element_by_id("usageRuleDefinition.action").send_keys("Plan_50_Consumed")
+            browser.find_element_by_id("usageRuleDefinition.action").send_keys(Keys.TAB)
+            browser.find_element_by_id("createAction").send_keys(Keys.TAB)
+            browser.find_element_by_id("saveUsageRule").send_keys(Keys.ENTER)
+
+
+        except TimeoutException:
+            print("ADCS is taking too much time to load !!")
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.XPATH, '//div[@class="sidebar-toggler hidden-phone"]'))
+        WebDriverWait(browser, timeout).until(element_present)
+
+
+        browser.find_element_by_xpath('//div[@class="sidebar-toggler hidden-phone"]').click()
+        time.sleep(1)
+
+
+        # USAGE RULE
+        browser.find_element_by_id("addUsageRuleButton_label").click()
+        # browser.switch_to.window(browser.current_window_handle)
+
+
+        try:
+            element_present = EC.presence_of_element_located((By.ID, "usageRuleDefinition.name"))
+            WebDriverWait(browser, timeout).until(element_present)
+
+
+            browser.switch_to.window(browser.current_window_handle)
+            browser.find_element_by_id("usageRuleDefinition.name").send_keys("80pct usage notification")
+            browser.find_element_by_id("displayThresholdVolume").clear()
+
+
+            vol_80pct = volume * 0.80
+            vol_80pct = int(vol_80pct)
+            pk_vol_80pct = str(vol_80pct) + 'MBs'
+
+
+            browser.find_element_by_id("displayThresholdVolume").send_keys(pk_vol_80pct)
+            browser.find_element_by_id("usageRuleDefinition.action").clear()
+            # browser.find_element_by_id("usageRuleDefinition.action").send_keys("AT_MSG_Plan_80_Consumed")
+            browser.find_element_by_id("usageRuleDefinition.action").send_keys("Plan_80_Consumed")
+            browser.find_element_by_id("usageRuleDefinition.action").send_keys(Keys.TAB)
+            browser.find_element_by_id("createAction").send_keys(Keys.TAB)
+            browser.find_element_by_id("saveUsageRule").send_keys(Keys.ENTER)
+
+
+        except TimeoutException:
+            print("ADCS is taking too much time to load !!")
+
+
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!")
+
+
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.ID, 'save_label'))
+        WebDriverWait(browser,timeout).until(element_present)
+        browser.find_element_by_id("save_label").click()
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!")
+
+
+    try:
+        element_present = EC.presence_of_element_located((By.ID,'planDefinitionVersioningSearchCriteria.recordsPerPage'))
+        WebDriverWait(browser,timeout).until(element_present)
+
+
+        N = 11
+        browser.find_element_by_id("planDefinitionVersioningSearchCriteria.recordsPerPage").send_keys(Keys.TAB)
+        actions = ActionChains(browser)
+        actions.send_keys(Keys.TAB * N)
+        actions.send_keys(Keys.ENTER)
+        actions.perform()
+    except TimeoutException:
+        print("ADCS is taking too much time to load !!!")
+    end = time.time()
+    end_list.append(end)
+browser.close()
